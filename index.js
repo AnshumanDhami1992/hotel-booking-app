@@ -47,7 +47,14 @@ async function hashPass(password){
   return res
 }
 
+async function comparePasswords(password, hashedPassword) {
+  return await bcryptjs.compare(password, hashedPassword);
+}
 
+// Token Generation function
+function generateToken(data) {
+  return jwt.sign(data, 'your_secret_key', { expiresIn: '1h' });
+}
 
 // ===========================================FUNTION TO GET FILES FROM DATABASE=======================================
 
@@ -106,7 +113,7 @@ catch(error){
 
 app.post("/register", async (req, res) => {
   try {
-    const check = await signupRecord.findOne({ email: req.body.email });// Check if the user exists by searching for the email in the database.
+    const check = await signupRecord.findOne({ email: req.body.email,password:req.body.password });// Check if the user exists by searching for the email in the database.
 
 
     if (check) {
@@ -117,7 +124,7 @@ app.post("/register", async (req, res) => {
 
 // If the user doesn't exist, hash the password, generate a JWT token, set it as a cookie,
       const hashedPassword = await hashPass(req.body.password);
-      const token = jwt.sign({ email: req.body.email }, "sadasdsadsadsadsadsadsadsadasdasdsaadsadsadsadasefef");
+      const token = jwt.sign({ email: req.body.email,password:req.body.password }, "sadasdsadsadsadsadsadsadsadasdasdsaadsadsadsadasefef");
 
       res.cookie("jwt",token,{
         maxAge:600000,
@@ -159,34 +166,72 @@ app.get('/login', (req, res) => {
 
 // Handling user login:
 
-app.post('/login',async(req,res)=>{
-  try{
-      const {  email, password } = req.body;// Retrieve email and password from the request body.
-      console.log('details', email, password);
-      
-      const userDetails=await signupRecord.findOne({email:email},{password:password});// Search for user details in the database based on the provided email.
-      const generateToken=(userData)=>{
-          return jwt.sign(userData,"sadasdsadsadsadsadsadsadsadasdasdsaadsadsadsadasefef",{expiresIn:'1h'});
-          }
 
-          // Generate a JWT token using user data (email and password) if the user exists.
-          console.log('userdetails',userDetails);
-          const token=generateToken({password:userDetails.password,email:email});
-          console.log('token is ',token);
-          res.cookie('email',userDetails.email);// Set cookies for email, password, and the generated JWT token.
-          res.cookie('password',userDetails.password);
 
-          res.cookie('jwt',token,{httponly:true});
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const userDetails = await signupRecord.findOne({ email }); // Retrieve user details based on email.
 
-      if(userDetails){
-          
-          res.redirect('/index');// If user details are found, redirect to '/index'.
+    if (userDetails) {
+      // Compare hashed password retrieved from DB with the provided password.
+      const isPasswordValid = await comparePasswords(password, userDetails.password);
+
+      if (isPasswordValid) {
+        // Generate token using user's email or ID, but NOT the password.
+        const token = generateToken({ email: userDetails.email }); // Or you can use a unique identifier like ID.
+
+        // Set cookies for email and the generated JWT token.
+        res.cookie('email', userDetails.email);
+        res.cookie('jwt', token, { httpOnly: true });
+
+        res.redirect('/index');
+      } else {
+        res.status(401).send('Incorrect email or password');
       }
+    } else {
+      res.status(401).send('User not found');
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).send('Internal Server Error');
   }
-  catch(e){
-      console.log(e);
-  }
-})
+});
+
+
+
+// app.post('/login',async(req,res)=>{
+//   try{
+//       const {  email, password } = req.body;// Retrieve email and password from the request body.
+//       console.log('details', email, password);
+      
+//       const userDetails=await signupRecord.findOne({email:email},{password:password});// Search for user details in the database based on the provided email.
+//       const generateToken=(userData)=>{
+//           return jwt.sign(userData,"sadasdsadsadsadsadsadsadsadasdasdsaadsadsadsadasefef",{expiresIn:'1h'});
+//           }
+
+//           // Generate a JWT token using user data (email and password) if the user exists.
+//           console.log('userdetails',userDetails);
+//           const token=generateToken({password:userDetails.password,email:userDetails.email});
+//           console.log('token is ',token);
+//           res.cookie('email',userDetails.email);// Set cookies for email, password, and the generated JWT token.
+//           res.cookie('password',userDetails.password);
+
+//           res.cookie('jwt',token,{httponly:true});
+
+//       if(userDetails){
+          
+//           res.redirect('/index');// If user details are found, redirect to '/index'.
+//       }else{ res.status(401).send('Incorrect email or password');}
+//   }
+//   catch(e){
+//       console.log(e);
+//   }
+// })
+
+
+
+
 
 
 
@@ -235,7 +280,9 @@ app.get('/login', (req, res) => {
 //============================== route to logoout page=============================
 app.get("/logout", async (req, res) => {
   try {
+     res.clearCookie("jwt");
  
+
     res.redirect("/");
   } catch (error) {
     res.status(500).send(error);

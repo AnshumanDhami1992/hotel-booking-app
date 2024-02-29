@@ -53,9 +53,11 @@
         <ul class="dropdown-menu">
           <% if (typeof jwt !== 'undefined' && jwt !== null) { %>
             <li><a class="dropdown-item" href="/logout">Logout</a></li>
-          } else { %>
-              <li><a class="dropdown-item" href="/login">LogIn/SignUp</a></li>
-              <% } %>
+          <% } else { %>
+            <li><a class="dropdown-item" href="/login">LogIn/SignUp</a></li>
+          <% } %>
+       
+          
                 <li>
                   <hr class="dropdown-divider">
                 </li>
